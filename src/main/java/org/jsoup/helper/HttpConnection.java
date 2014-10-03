@@ -172,7 +172,12 @@ public class HttpConnection implements Connection {
     }
 
     public Document post() throws IOException {
+        return post(false);
+    }
+
+    public Document post(boolean isMultipart) throws IOException {
         req.method(Method.POST);
+        req.postMultipart(isMultipart);
         execute();
         return res.parse();
     }
@@ -317,6 +322,7 @@ public class HttpConnection implements Connection {
         private int timeoutMilliseconds;
         private int maxBodySizeBytes;
         private boolean followRedirects;
+        private boolean postMultipart;
         private Collection<Connection.KeyVal> data;
         private boolean ignoreHttpErrors = false;
         private boolean ignoreContentType = false;
@@ -326,6 +332,7 @@ public class HttpConnection implements Connection {
             timeoutMilliseconds = 3000;
             maxBodySizeBytes = 1024 * 1024; // 1MB
             followRedirects = true;
+            postMultipart = false;
             data = new ArrayList<Connection.KeyVal>();
             method = Connection.Method.GET;
             headers.put("Accept-Encoding", "gzip");
@@ -358,6 +365,15 @@ public class HttpConnection implements Connection {
 
         public Connection.Request followRedirects(boolean followRedirects) {
             this.followRedirects = followRedirects;
+            return this;
+        }
+
+        public boolean postMultipart() {
+            return postMultipart;
+        }
+
+        public Connection.Request postMultipart(boolean postMultipart) {
+            this.postMultipart = postMultipart;
             return this;
         }
 
@@ -443,12 +459,17 @@ public class HttpConnection implements Connection {
             // set up the request for execution
             if (req.method() == Connection.Method.GET && req.data().size() > 0)
                 serialiseRequestUrl(req); // appends query string
+            
+            // Set or add Content-Type and Content-Length
+            // prepost are datas that will be given to writePost method
+            Object prepost = preparePost(req);
+            
             HttpURLConnection conn = createConnection(req);
             Response res;
             try {
                 conn.connect();
                 if (req.method() == Connection.Method.POST)
-                    writePost(req.data(), conn.getOutputStream());
+                    writePost(req, conn.getOutputStream(), prepost);
 
                 int status = conn.getResponseCode();
                 boolean needsRedirect = false;
@@ -617,18 +638,52 @@ public class HttpConnection implements Connection {
             }
         }
 
-        private static void writePost(Collection<Connection.KeyVal> data, OutputStream outputStream) throws IOException {
+        private static Object preparePost(Connection.Request req) throws IOException {
+        	if (req.postMultipart()) {
+            	String boundary = DataUtil.generateBoundary();
+            	req.header("Content-Type", "multipart/form-data; boundary=" + boundary);
+            	ByteArrayOutputStream payload = new ByteArrayOutputStream();
+            	writePost(req, payload, boundary);
+            	int length = payload.toString(DataUtil.defaultCharset).length();
+            	payload.close();
+            	req.header("Content-Length", String.valueOf(length));
+            	// Return the generated boundary in prepost to be used later when writting datas
+            	return boundary;
+        	}
+        	// else: keep original behaviour, do nothing.
+        	return null;
+        }
+        
+        private static void writePost(Connection.Request req, OutputStream outputStream, Object prepost) throws IOException {
             OutputStreamWriter w = new OutputStreamWriter(outputStream, DataUtil.defaultCharset);
-            boolean first = true;
-            for (Connection.KeyVal keyVal : data) {
-                if (!first)
-                    w.append('&');
-                else
-                    first = false;
-
-                w.write(URLEncoder.encode(keyVal.key(), DataUtil.defaultCharset));
-                w.write('=');
-                w.write(URLEncoder.encode(keyVal.value(), DataUtil.defaultCharset));
+            if (req.postMultipart()) {
+            	// In this case, prepost is the generated boundary
+            	String boundary = (String) prepost;
+                w.write("--");
+                w.write(boundary);
+                for (Connection.KeyVal keyVal : req.data()) {
+                	w.write("\nContent-Disposition: form-data; name=\"");
+                	w.write(keyVal.key());
+                	w.write("\"\nContent-Type: text/plain\n\n");
+                	w.write(keyVal.value());
+                    w.write("\n--");
+                    w.write(boundary);
+                }
+                w.write("--");
+            }
+            else {
+            	// Keep original behaviour, send as 'application/x-www-form-urlencoded'
+	            boolean first = true;
+	            for (Connection.KeyVal keyVal : req.data()) {
+	                if (!first)
+	                    w.append('&');
+	                else
+	                    first = false;
+	
+	                w.write(URLEncoder.encode(keyVal.key(), DataUtil.defaultCharset));
+	                w.write('=');
+	                w.write(URLEncoder.encode(keyVal.value(), DataUtil.defaultCharset));
+	            }
             }
             w.close();
         }

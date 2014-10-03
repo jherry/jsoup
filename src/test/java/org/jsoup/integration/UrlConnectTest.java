@@ -5,6 +5,7 @@ import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.UnsupportedMimeTypeException;
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -97,6 +98,24 @@ public class UrlConnectTest {
         assertEquals("auth=token", ihVal("HTTP_COOKIE", doc));
         assertEquals("度一下", ihVal("百", doc));
         assertEquals("Jsoup, Jonathan", ihVal("uname", doc));
+        assertEquals("64", ihVal("CONTENT_LENGTH", doc));
+        assertEquals("application/x-www-form-urlencoded", ihVal("CONTENT_TYPE", doc));
+    }
+
+    @Test
+    public void doesPostMultipart() throws IOException {
+        Document doc = Jsoup.connect("http://httpbin.org/post")
+            .data("uname", "Jsoup", "uname", "Jonathan", "百", "度一下")
+            .cookie("auth", "token")
+            .post(true);
+
+        assertEquals("POST", ihVal("REQUEST_METHOD", doc));
+        //assertEquals("gzip", ihVal("HTTP_ACCEPT_ENCODING", doc)); // current proxy removes gzip on post
+        assertEquals("auth=token", ihVal("HTTP_COOKIE", doc));
+        assertEquals("度一下", ihVal("百", doc));
+        assertEquals("Jsoup, Jonathan", ihVal("uname", doc));
+        assertEquals("64", ihVal("CONTENT_LENGTH", doc));
+        assertEquals("application/x-www-form-urlencoded", ihVal("CONTENT_TYPE", doc));
     }
 
     @Test
@@ -114,7 +133,11 @@ public class UrlConnectTest {
     }
 
     private static String ihVal(String key, Document doc) {
-        return doc.select("th:contains("+key+") + td").first().text();
+    	Element element = doc.select("th:contains("+key+") + td").first();
+    	if (element == null) {
+    		return null;
+    	}
+        return element.text();
     }
 
     @Test

@@ -8,6 +8,7 @@ import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.IllegalCharsetNameException;
+import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.Locale;
@@ -190,6 +191,16 @@ public class DataUtil {
         }
         return null;
     }
-    
-    
+
+	private final static char[] MULTIPART_CHARS = "-_1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".toCharArray();
+
+	static String generateBoundary() {
+		StringBuilder buffer = new StringBuilder();
+		Random rand = new Random();
+		int count = rand.nextInt(11) + 30; // a random size from 30 to 40
+		for (int i = 0; i < count; i++) {
+			buffer.append(MULTIPART_CHARS[rand.nextInt(MULTIPART_CHARS.length)]);
+		}
+		return buffer.toString();
+	}
 }

@@ -191,6 +191,19 @@ public interface Connection {
     public Document post() throws IOException;
 
     /**
+     * Execute the request as a POST, and parse the result.
+     * @param isMultipart Set to true if you want to post with multipart/form-data content type, false for 
+     * application/x-www-form-urlencoded content type
+     * @return parsed Document
+     * @throws java.net.MalformedURLException if the request URL is not a HTTP or HTTPS URL, or is otherwise malformed
+     * @throws HttpStatusException if the response is not OK and HTTP response errors are not ignored
+     * @throws UnsupportedMimeTypeException if the response mime type is not supported and those errors are not ignored
+     * @throws java.net.SocketTimeoutException if the connection times out
+     * @throws IOException on error
+     */
+    public Document post(boolean isMultipart) throws IOException;
+
+    /**
      * Execute the request.
      * @return a response object
      * @throws java.net.MalformedURLException if the request URL is not a HTTP or HTTPS URL, or is otherwise malformed
@@ -382,6 +395,20 @@ public interface Connection {
          * @return this Request, for chaining
          */
         public Request followRedirects(boolean followRedirects);
+
+        /**
+         * Get the current postMultipart configuration.
+         * @return true if post will be made using 'multipart/form-data' content type.
+         */
+        public boolean postMultipart();
+
+        /**
+         * Configures the request to post datas using 'multipart/form-data' content type. By default this is <b>false</b>.
+         *
+         * @param postMultipart true if datas should be posted using 'multipart/form-data' content type.
+         * @return this Request, for chaining
+         */
+        public Request postMultipart(boolean postMultipart);
 
         /**
          * Get the current ignoreHttpErrors configuration.
