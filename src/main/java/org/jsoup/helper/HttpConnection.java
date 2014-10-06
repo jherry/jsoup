@@ -628,7 +628,10 @@ public class HttpConnection implements Connection {
                             cookieVal = "";
                         // ignores path, date, domain, secure et al. req'd?
                         // name not blank, value not null
-                        if (cookieName != null && cookieName.length() > 0)
+						// Websites should not set cookies multiple times in
+						// same response but some do; latest browsers only take
+						// first cookie value, so we do.
+                        if (cookieName != null && cookieName.length() > 0 && !hasCookie(cookieName))
                             cookie(cookieName, cookieVal);
                     }
                 } else { // only take the first instance of each header
